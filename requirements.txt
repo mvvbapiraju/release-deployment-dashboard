@@ -1,0 +1,11 @@
+flask
+Flask-OAuthlib
+Flask-Caching
+apscheduler
+python-gitlab
+python-dateutil
+Werkzeug==2.2.2
+setuptools
+gunicorn==23.0.0
+redis
+pyyaml

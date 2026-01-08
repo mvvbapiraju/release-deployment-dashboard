@@ -1,0 +1,249 @@
+{
+    "family": "release-deployment-dashboard",
+    "containerDefinitions": [
+        {
+            "name": "release-deployment-dashboard",
+            "image": "<aws-account-id>.dkr.ecr.us-east-1.amazonaws.com/myorg/release-deployment-dashboard:${version}",
+            "cpu": 0,
+            "portMappings": [
+                {
+                    "name": "release-deployment-dashboard",
+                    "containerPort": 3000,
+                    "hostPort": 3000,
+                    "protocol": "tcp"
+                }
+            ],
+            "command": [
+                "gunicorn", "main:app", "--bind=:3000", "--worker-class=gthread",
+                "--workers=1", "--threads=10", "--timeout=120",
+                "--access-logfile=-", "--error-logfile=-", "--log-level=debug"
+            ],
+            "essential": true,
+            "environment": [
+                {   "name": "REDIS_HOST",
+                    "value": "myorg-elasticache-redis-.serverless.use1.cache.amazonaws.com"
+                },
+                {   "name": "REDIS_PORT",
+                    "value": "6379"
+                },
+                {   "name": "REDIS_DB",
+                    "value": "0"
+                },
+                {   "name": "REDIS_SSL",
+                    "value": "True"
+                }
+            ],
+            "mountPoints": [],
+            "volumesFrom": [],
+            "linuxParameters": {
+                "initProcessEnabled": false
+            },
+            "secrets": [
+                {
+                    "name": "GITLAB_ACCESS_TOKEN",
+                    "valueFrom": "arn:aws:secretsmanager:us-east-1:<aws-account-id>:secret:tooling/release-deployment-dashboard:GITLAB_ACCESS_TOKEN::"
+                },
+                {
+                    "name": "GITLAB_APPLICATION_ID",
+                    "valueFrom": "arn:aws:secretsmanager:us-east-1:<aws-account-id>:secret:tooling/release-deployment-dashboard:GITLAB_APPLICATION_ID::"
+                },
+                {
+                    "name": "GITLAB_APPLICATION_SECRET",
+                    "valueFrom": "arn:aws:secretsmanager:us-east-1:<aws-account-id>:secret:tooling/release-deployment-dashboard:GITLAB_APPLICATION_SECRET::"
+                }
+            ],
+            "startTimeout": 30,
+            "stopTimeout": 120,
+            "user": "0",
+            "privileged": false,
+            "readonlyRootFilesystem": false,
+            "interactive": false,
+            "pseudoTerminal": false,
+            "dockerLabels": {
+                "com.datadoghq.tags.service": "release-deployment-dashboard",
+                "com.datadoghq.tags.version": "${version}"
+            },
+            "logConfiguration": {
+                "logDriver": "awsfirelens",
+                "options": {
+                    "dd_message_key": "msg",
+                    "provider": "ecs",
+                    "dd_service": "release-deployment-dashboard",
+                    "Host": "http-intake.logs.datadoghq.com",
+                    "TLS": "on",
+                    "dd_source": "python",
+                    "Name": "datadog"
+                },
+                "secretOptions": [
+                    {
+                        "name": "apikey",
+                        "valueFrom": "arn:aws:secretsmanager:us-east-1:<aws-account-id>:secret:datadog-api-key"
+                    }
+                ]
+            },
+            "systemControls": []
+        },
+        {
+            "name": "release-deployment-dashboard-scheduler",
+            "image": "<aws-account-id>.dkr.ecr.us-east-1.amazonaws.com/myorg/release-deployment-dashboard:${version}",
+            "command": ["python", "scheduler.py"],
+            "cpu": 0,
+            "portMappings": [],
+            "essential": false,
+            "environment": [
+                {   "name": "REDIS_HOST",
+                    "value": "myorg-elasticache-redis.serverless.use1.cache.amazonaws.com"
+                },
+                {   "name": "REDIS_PORT",
+                    "value": "6379"
+                },
+                {   "name": "REDIS_DB",
+                    "value": "0"
+                },
+                {   "name": "REDIS_SSL",
+                    "value": "True"
+                }
+            ],
+            "mountPoints": [],
+            "volumesFrom": [],
+            "linuxParameters": {
+                "initProcessEnabled": false
+            },
+            "secrets": [
+                {
+                    "name": "GITLAB_ACCESS_TOKEN",
+                    "valueFrom": "arn:aws:secretsmanager:us-east-1:<aws-account-id>:secret:tooling/release-deployment-dashboard:GITLAB_ACCESS_TOKEN::"
+                },
+                {
+                    "name": "GITLAB_APPLICATION_ID",
+                    "valueFrom": "arn:aws:secretsmanager:us-east-1:<aws-account-id>:secret:tooling/release-deployment-dashboard:GITLAB_APPLICATION_ID::"
+                },
+                {
+                    "name": "GITLAB_APPLICATION_SECRET",
+                    "valueFrom": "arn:aws:secretsmanager:us-east-1:<aws-account-id>:secret:tooling/release-deployment-dashboard:GITLAB_APPLICATION_SECRET::"
+                }
+            ],
+            "startTimeout": 30,
+            "stopTimeout": 120,
+            "user": "0",
+            "privileged": false,
+            "readonlyRootFilesystem": true,
+            "interactive": false,
+            "pseudoTerminal": false,
+            "dockerLabels": {
+                "com.datadoghq.tags.service": "release-deployment-dashboard-scheduler",
+                "com.datadoghq.tags.version": "${version}"
+            },
+            "logConfiguration": {
+                "logDriver": "awsfirelens",
+                "options": {
+                    "dd_message_key": "msg",
+                    "provider": "ecs",
+                    "dd_service": "release-deployment-dashboard-scheduler",
+                    "Host": "http-intake.logs.datadoghq.com",
+                    "TLS": "on",
+                    "dd_source": "python",
+                    "Name": "datadog"
+                },
+                "secretOptions": [
+                    {
+                        "name": "apikey",
+                        "valueFrom": "arn:aws:secretsmanager:us-east-1:<aws-account-id>:secret:datadog-api-key"
+                    }
+                ]
+            },
+            "systemControls": []
+        },
+        {
+            "name": "datadog-agent",
+            "image": "public.ecr.aws/datadog/agent:latest",
+            "cpu": 0,
+            "portMappings": [],
+            "essential": true,
+            "environment": [
+                {
+                    "name": "ECS_FARGATE",
+                    "value": "true"
+                }
+            ],
+            "mountPoints": [],
+            "volumesFrom": [],
+            "linuxParameters": {
+                "initProcessEnabled": false
+            },
+            "secrets": [
+                {
+                    "name": "DD_API_KEY",
+                    "valueFrom": "arn:aws:secretsmanager:us-east-1:<aws-account-id>:secret:datadog-api-key"
+                }
+            ],
+            "startTimeout": 30,
+            "stopTimeout": 120,
+            "user": "0",
+            "privileged": false,
+            "readonlyRootFilesystem": false,
+            "interactive": false,
+            "pseudoTerminal": false,
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/aws/ecs/release-deployment-dashboard/datadog-agent",
+                    "awslogs-region": "us-east-1",
+                    "awslogs-stream-prefix": "ecs"
+                }
+            },
+            "systemControls": []
+        },
+        {
+            "name": "fluent-bit",
+            "image": "<aws-account-id>.dkr.ecr.us-east-1.amazonaws.com/aws-for-fluent-bit:stable",
+            "cpu": 0,
+            "portMappings": [],
+            "essential": true,
+            "environment": [],
+            "mountPoints": [],
+            "volumesFrom": [],
+            "linuxParameters": {
+                "initProcessEnabled": false
+            },
+            "startTimeout": 30,
+            "stopTimeout": 120,
+            "user": "0",
+            "privileged": false,
+            "readonlyRootFilesystem": true,
+            "interactive": false,
+            "pseudoTerminal": false,
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/aws/ecs/release-deployment-dashboard/fluent-bit",
+                    "awslogs-region": "us-east-1",
+                    "awslogs-stream-prefix": "ecs"
+                }
+            },
+            "systemControls": [],
+            "firelensConfiguration": {
+                "type": "fluentbit",
+                "options": {
+                    "config-file-type": "file",
+                    "config-file-value": "/fluent-bit/configs/parse-json.conf",
+                    "enable-ecs-log-metadata": "true"
+                }
+            }
+        }
+    ],
+    "taskRoleArn": "arn:aws:iam::<aws-account-id>:role/release-deployment-dashboard-task-role-us-east-1",
+    "executionRoleArn": "arn:aws:iam::<aws-account-id>:role/release-deployment-dashboard-task-exec-role-us-east-1",
+    "networkMode": "awsvpc",
+    "volumes": [],
+    "placementConstraints": [],
+    "requiresCompatibilities": [
+        "FARGATE"
+    ],
+    "cpu": "4096",
+    "memory": "8192",
+    "runtimePlatform": {
+        "cpuArchitecture": "X86_64",
+        "operatingSystemFamily": "LINUX"
+    }
+}

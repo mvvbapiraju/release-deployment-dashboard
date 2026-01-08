@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" charset="UTF-8">
+        <link rel="icon" type="image/jpg" href="../static/dashboard-logo.jpg">
+        <title>Release Deployment Dashboard</title>
+        <style>
+            table, th, td {
+                border: 3px solid black;
+            }
+            table {
+                width: 50%;
+                border-collapse: collapse;
+                margin-left: auto;
+                margin-right: auto;
+                background-color: #FFA07A;
+            }
+            th {
+                padding: 8px;
+                text-align: center;
+            }
+            td {
+                padding: 8px;
+                text-align: center;
+                background-color: #F0FFF0;
+            }
+            .center-align {
+                text-align: center;
+            }
+            /* Style buttons */
+            .button-container {
+                text-align: center;
+                margin-bottom: 20px;
+            }
+            .btn {
+                display: inline-block;
+                background-color: DodgerBlue;   /* Blue background */
+                border: none;                   /* Remove borders */
+                color: white;                   /* White text */
+                padding: 8px 16px;              /* Some padding */
+                margin: 5px;
+                font-size: 14px;                /* Set a font size */
+                border-radius: 4px;
+                cursor: pointer;                /* Mouse pointer on hover */
+                text-align: center;
+                text-decoration: none;          /* Remove text decoration in href */
+            }
+            /* Darker background on mouse-over */
+            .btn:hover {
+                background-color: RoyalBlue;
+            }
+            .page-title {
+                text-align: center;
+            }
+            .page-title-underline {
+                text-decoration: underline;
+            }
+            .status-table {
+                display: table;
+            }
+        </style>
+    </head>
+
+    <body>
+        <h1 class="page-title"><span class="page-title-underline">Release Deployment Dashboard</span></h1>
+<!--        <div class="button-container">-->
+<!--            <a href="/logout" class="btn">Logout</a>-->
+<!--        </div>-->
+        <div>&nbsp;</div>
+        <table id="statusTable" class="status-table">
+            <thead>
+                <tr>
+                    <th colspan="2"><strong>Deployment Dashboards</strong></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><a href="/releases">CI/CD Projects Dashboard</a></td>
+                    <td><a>Migrations Dashboard</a></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <script type="application/json" id="gitflow-data">{{ gitflow_data | tojson | safe }}</script>
+        <script type="application/json" id="trunk-data">{{ trunk_data | tojson | safe }}</script>
+        <script>
+            // Data from server
+            const gitflowProjectIdList = JSON.parse(document.getElementById('gitflow-data').textContent);
+            const trunkProjectIdList = JSON.parse(document.getElementById('trunk-data').textContent);
+            const totalProjectIdList = [...gitflowProjectIdList, ...trunkProjectIdList];
+            console.log("GitFlow List:", gitflowProjectIdList);
+            console.log("Trunk List:", trunkProjectIdList);
+            console.log("Total Projects List:", totalProjectIdList);
+
+            const tbody = document.querySelector('#statusTable tbody');
+
+            try {
+                // Clear previous rows
+                tbody.innerHTML = '';
+
+                const row = document.createElement('tr');
+
+                const regularCell = document.createElement('td');
+                const regularHyperlink = document.createElement('a');
+                regularHyperlink.href = '/releases';
+                regularHyperlink.textContent = `CI/CD Projects Dashboard  [ ${totalProjectIdList.length} ]`;
+                regularCell.appendChild(regularHyperlink);
+                row.appendChild(regularCell);
+
+                const migrationsCell = document.createElement('td');
+                // const migrationsHyperlink = document.createElement('a');
+                // migrationsHyperlink.href = '/migrations';
+                // migrationsHyperlink.textContent = `Migrations Dashboard  [ ${trunkProjectIdList.length} ]`;
+                // migrationsCell.appendChild(migrationsHyperlink);
+                migrationsCell.textContent = `Migrations Dashboard  [ Coming Soon... ]`;
+                row.appendChild(migrationsCell);
+
+                tbody.appendChild(row);
+            } catch (error) {
+                console.error('Error displaying index page:', error);
+            }
+        </script>
+    </body>
+</html>

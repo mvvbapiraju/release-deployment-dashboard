@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" charset="UTF-8">
+        <!-- Add icon library -->
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+        <link rel="icon" type="image/jpg" href="../static/dashboard-logo.jpg">
+        <title>Release Deployment Dashboard - CI/CD</title>
+        <style>
+            table, th, td {
+                border: 3px solid black;
+            }
+            table {
+                table-layout: auto;
+                width: auto;                    /* or 100% if you want the table to fill the container, but columns will still auto-adjust */
+                border-collapse: collapse;      /* removes the spacing between table borders*/
+                /*margin-left: auto;*/
+                /*margin-right: auto;*/
+                margin: 0 auto;
+                background-color: #FFA07A;
+            }
+            th {
+                padding: 8px;
+                text-align: center;
+            }
+            td {
+                border: 2px solid black;
+                padding: 8px;
+                text-align: left;
+                background-color: #F0FFF0;
+            }
+            .center-align {
+                text-align: center;
+            }
+            .fixed-cell {
+                /*max-width: 300px;             !* Fixed width for the column *!*/
+                position: relative;             /* Create a positioning context for the tooltip */
+                overflow: visible;              /* Allow tooltip to extend outside */
+            }
+            .cell-content {
+                display: inline-block;          /* Wraps inner content */
+                width: 100%;
+                overflow: hidden;               /* Truncate the text within */
+                white-space: nowrap;
+                text-overflow: ellipsis;
+            }
+            .cell-content[data-tooltip]:not([data-tooltip=""]):hover::after {
+                content: attr(data-tooltip);    /* Show the full text from the attribute */
+                position: absolute;
+                bottom: 75%;                    /* Position above the container */
+                right: 0%;                      /* Aligns with right boarder */
+                transform: translateX(0%);      /* Adjust horizontal centering */
+                background: rgba(51, 51, 51, 0.9);
+                color: #fff;
+                padding: 6px 10px;
+                border-radius: 4px;
+                white-space: normal;            /* Allow text wrapping so height adjusts */
+                max-width: 300px;               /* Maximum width for the tooltip */
+                z-index: 999;
+                pointer-events: none;           /* So that tooltip doesn't block hover events */
+            }
+            .truncated-text {
+                display: inline-block;
+                /*max-width: 300px;             !* Adjust so the link always has space *!*/
+                overflow: hidden;
+                white-space: nowrap;
+                text-overflow: ellipsis;
+                vertical-align: middle;
+            }
+            .link-section {
+                display: inline-block;
+                flex-shrink: 0;                 /* Prevent this element from shrinking */
+                margin-left: 1px;
+                color: blue;
+                text-decoration: underline;
+                vertical-align: middle;
+            }
+            /* Style buttons */
+            .button-container {
+                text-align: center;
+                margin-bottom: 20px;
+            }
+            .btn {
+                display: inline-block;
+                background-color: DodgerBlue;   /* Blue background */
+                border: none;                   /* Remove borders */
+                color: white;                   /* White text */
+                padding: 8px 16px;              /* Some padding */
+                margin: 5px;
+                font-size: 14px;                /* Set a font size */
+                border-radius: 4px;
+                cursor: pointer;                /* Mouse pointer on hover */
+                text-align: center;
+                text-decoration: none;          /* Remove text decoration in href */
+            }
+            /* Darker background on mouse-over */
+            .btn:hover {
+                background-color: RoyalBlue;
+            }
+            .btn-pill {
+                position: absolute;
+                display: inline-flex;
+                align-items: center;
+                background: goldenrod;
+                padding: 6px 12px;
+                border: none;
+                border-radius: 999px;
+                font-size: 0.9em;
+                cursor: pointer;
+                transition: background-color 0.2s ease;
+            }
+            .btn-pill.right {
+                right: 8px;                     /* 8px from the cell’s right edge */
+                top: 50%;
+                transform: translateY(-50%);
+                display: flex;
+                background: rosybrown;
+            }
+            .btn-pill:hover,
+            .btn-pill.right:hover {
+                background-color: lightsalmon;
+            }
+            .btn-pill.success {
+                position: static;
+                background-color: aquamarine;
+                color: black;
+            }
+            .btn-pill.error {
+                position: static;
+                background-color: salmon;
+                color: black;
+            }
+            .btn-pill.warning {
+                position: static;
+                background-color: lightgoldenrodyellow;
+                color: black;
+            }
+            .btn-pill.neutral {
+                position: static;
+                background-color: lavender;
+                color: black;
+            }
+            /* Targets only the 'Open Hotfix' column */
+            td.hotfix-cell .cell-content {
+                white-space: normal;
+                word-break: break-word;
+                max-width: 200px;
+                overflow: visible;
+            }
+            /* Make room for the pill */
+            td.hotfix-cell {
+                position: relative;             /* keeps your .btn-pill.right positioning sane */
+                padding-right: 125px;           /* room for the pill */
+                max-width: 200px;               /* never grow wider than this */
+                overflow: visible;              /* let tooltip & pill overflow */
+            }
+            .table-container {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+            .fa-spin.hidden {
+                display: none;
+            }
+            tr.highlight td {
+                background-color: darkseagreen !important;
+                transition: background-color 1s ease;
+            }
+            .refreshed-version-cell {
+                text-decoration: underline;
+                font-weight: bold;
+            }
+            .version-cell {
+                font-weight: bold;
+            }
+            /* The inline confirmation dialog button */
+            .confirm-dialog {
+                position: absolute;
+                bottom: 20%;                    /* sit just above the center of the cell */
+                left: 50%;                      /* center horizontally */
+                transform: translateX(-50%);
+                background: #fff;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                padding: 8px;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+                white-space: nowrap;
+                z-index: 1000;                  /* on top of everything in that cell */
+            }
+            /* Style the two tiny buttons inside the dialog button */
+            .confirm-dialog button {
+                margin: 0 4px;
+                padding: 2px 6px;
+                font-size: 0.9em;
+                cursor: pointer;
+            }
+            .cat-backend        td { background-color: antiquewhite; }
+            .cat-bff            td { background-color: powderblue; }
+            .cat-frontend       td { background-color: lavender; }
+            .cat-infrastructure td { background-color: lightyellow; }
+            .cat-others         td { background-color: mistyrose; }
+            .page-title {
+                text-align: center;
+            }
+            .page-title-underline {
+                text-decoration: underline;
+            }
+            .metrics-popover {
+                position: absolute;
+                background: rgb(200, 200, 200);
+                color: #000000;
+                top: auto;
+                left: calc(100% + 5px);     /* 5px to the right of the info button */
+                padding: 12px 16px 10px 12px;
+                border-radius: 10px;
+                box-shadow: 0 4px 14px rgb(255, 68, 0);
+                border: 1.5px solid #000000;
+                font-size: 0.97em;
+                white-space: nowrap;         /* <--- prevents wrapping, horizontal auto-size */
+                z-index: 9999;
+                display: none;
+                line-height: 1.35;           /* <--- tighter lines */
+                width: fit-content;          /* <--- auto-size to longest line (modern browsers) */
+                max-width: 98vw;             /* never overflow screen */
+                pointer-events: auto;
+                opacity: 0.97;
+                transition: opacity 0.18s;
+                word-break: normal;
+            }
+            .metrics-popover strong, .metrics-popover em {
+                color: #0015ff;
+            }
+            .metrics-popover code {
+                background: #f6f6fa;
+                padding: 0 3px;
+                border-radius: 3px;
+                font-size: 0.96em;
+            }
+            button .fa-info-circle {
+                pointer-events: none;
+            }
+            /* GitLab status banner */
+            .gitlab-status-banner {
+                position: absolute;
+                top: -2.3em;                /* adjust as needed for vertical spacing */
+                right: 0;
+                background: #fff;
+                border: 1.5px solid #f3b82e;
+                border-radius: 6px;
+                box-shadow: 0 3px 12px rgba(150,130,30,0.09);
+                padding: 7px 18px 7px 10px;
+                font-weight: 500;
+                font-size: 1em;
+                color: #555;
+                z-index: 20;
+                display: flex;
+                align-items: center;
+                gap: 0.3em;
+                min-width: 220px;
+                max-width: 400px;
+                pointer-events: auto;
+            }
+            .table-banner-wrapper {
+                width: max-content;
+                margin: 0 auto;
+                position: relative;
+            }
+            #statusTable {
+                width: 100%;
+                margin: 0;
+            }
+        </style>
+    </head>
+
+    <body>
+        <h1 class="page-title"><span class="page-title-underline">Release Deployment Dashboard - CI/CD</span></h1>
+
+        <div class="table-container">
+            <div class="button-container">
+                <a href="/" class="btn"><i class="fa fa-home"></i> Home</a>
+            <!--<a href="/logout" class="btn">Logout</a>-->
+            </div>
+            <div id="loading">Loading...</div>
+            <div>&nbsp;</div>
+            <!-- <table id="statusTable" style="display: none;"> -->
+            <div class="table-banner-wrapper">
+                <div id="gitlab-status-banner" class="gitlab-status-banner">
+                    <a href="https://status.gitlab.com/" target="_blank" style="text-decoration:none;color:inherit;">
+                        <span id="gitlab-status-dot" style="display:inline-block;width:13px;height:13px;border-radius:50%;background:#aaa;margin-right:8px;vertical-align:middle;"></span>
+                        <span id="gitlab-status-text">GitLab Status: Checking…</span>
+                        <i class="fa fa-external-link" style="margin-left:6px;opacity:0.7;font-size:0.95em;"></i>
+                    </a>
+                </div>
+                <table id="statusTable">
+                    <thead>
+                        <tr>
+                            <th rowspan="2" id="slNoHeader"><strong>S.No.</strong></th>
+                            <th rowspan="2"><strong>Project Name</strong></th>
+                            <th colspan="2"><strong>Latest Deployed Versions</strong></th>
+                            <th colspan="2"><strong>Open Release/Hotfix Branches</strong></th>
+                            <th colspan="2"><strong>Data Refresh</strong></th>
+                        </tr>
+                        <tr>
+                            <th><strong>Stage</strong></th>
+                            <th><strong>Prod</strong></th>
+                            <th><strong>Open Release</strong></th>
+                            <th><strong>Open Hotfix</strong></th>
+                            <th><strong>Refresh Now</strong></th>
+                            <th><strong>Refreshed at</strong></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Status rows will be dynamically inserted here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <script type="application/json" id="project-data">{{ projects_data | tojson | safe }}</script>
+        <script>
+            // Data from server
+            const projectDict = JSON.parse(document.getElementById('project-data').textContent);
+            console.log("Project Dict:", projectDict);
+
+            const dateOptions = {
+                year: '2-digit',   // Two-digit year (e.g. "25")
+                month: 'numeric',  // Numeric month (e.g. "4")
+                day: 'numeric',    // Numeric day (e.g. "15")
+                hour: 'numeric',   // Numeric hour
+                minute: 'numeric', // Numeric minute
+                hour12: true       // 12-hour format; change to false for 24-hour format
+            };
+
+            function convertDateToLocalTime(updatedDate) {
+                return new Date(updatedDate).toLocaleString(navigator.language, dateOptions);
+            }
+
+            let sessionExpired = false;
+            async function safeFetch(url) {
+                const response = await fetch(url, { credentials: 'same-origin' });
+                if (response.status === 401) {
+                    // Session expired or not logged in
+                    if (!sessionExpired) {
+                        sessionExpired = true;
+                        alert('Your session expired. Redirecting to login.');
+                        window.location.href = '/login';
+                    }
+                    return null;
+                }
+
+                if (!response.ok) {
+                    console.error(`Fetch failed: ${response.statusText}`);
+                    return null;
+                }
+
+                return await response.json();
+            }
+
+            function createClickableButtonCell(buttonCell, project, clickType) {
+                const clickableBtn = document.createElement('button');
+                if (clickType === 'hotfix_cleanup') {
+                    clickableBtn.className = 'btn-pill right';
+                    clickableBtn.textContent = 'Hotfix Cleanup';
+                } else {
+                    clickableBtn.classList.add('btn-pill');
+                    clickableBtn.textContent = 'Create Hotfix';
+                }
+
+                const clickableBtnTextSpan = document.createElement('span');
+                clickableBtnTextSpan.style.marginLeft = '2px';
+
+                const clickableBtnLink = document.createElement('a');
+                clickableBtnLink.style.marginLeft = '2px';
+                clickableBtnLink.target = '_blank';
+
+                function showConfirmBubble(parentCell, onYes) {
+                    // remove any old dialogs in this cell
+                    const existing = parentCell.querySelector('.confirm-dialog');
+                    if (existing) existing.remove();
+
+                    // build the dialog
+                    const dialog = document.createElement('div');
+                    dialog.className = 'confirm-dialog';
+                    dialog.innerHTML = `Are you sure? <button class="btn-yes">Yes</button> <button class="btn-no">No</button>`;
+                    parentCell.style.position = 'relative'; // ensure parentCell can be a positioning context
+                    parentCell.appendChild(dialog);
+
+                    function cleanupDialog() {
+                        clearTimeout(dialog._dismissTimer);
+                        document.removeEventListener('mousedown', outsideClickListener);
+                        dialog.remove();
+                    }
+
+                    // “Yes” button
+                    dialog.querySelector('.btn-yes').onclick = () => {
+                        cleanupDialog();
+                        onYes();
+                    };
+
+                    // “No” button
+                    dialog.querySelector('.btn-no').onclick = cleanupDialog;
+
+                    // auto‐dismiss after 5s
+                    dialog._dismissTimer = setTimeout(cleanupDialog, 5000);
+
+                    // If clicked anywhere outside the dialog, dismiss.
+                    function outsideClickListener(e) {
+                        if (!dialog.contains(e.target)) {
+                            cleanupDialog();
+                        }
+                    }
+                    document.addEventListener('mousedown', outsideClickListener);
+                }
+
+                clickableBtn.onclick = async () => {
+                    showConfirmBubble(buttonCell, async () => {
+                        if (buttonCell.replaceChildren) {
+                            buttonCell.replaceChildren();
+                        } else {
+                            while (buttonCell.firstChild) {
+                                buttonCell.removeChild(buttonCell.firstChild);
+                            }
+                        }
+
+                        buttonCell.appendChild(clickableBtn);
+
+                        clickableBtn.disabled = true;
+                        clickableBtn.style.cursor = 'default';
+                        clickableBtn.className = 'btn-pill neutral';
+                        clickableBtn.textContent = clickType === 'hotfix_cleanup' ? '⏳ Cleaning up Hotfix…' : '⏳ Creating Hotfix…';
+
+                        let btnClass = 'neutral', displayText = '', linkHref = '', linkText = '#', linkColor = 'blue';
+                        try {
+                            const resp = await fetch(`/trigger_${clickType}/${project.project_id}?version=${project.latest_prod_deployment}`, {
+                                credentials: 'same-origin'
+                            });
+                            const body = await resp.json();
+
+                            if (!resp.ok || body.error) {
+                                console.error(body.error);
+                                btnClass    = 'error';
+                                clickableBtn.textContent = '❌ Failed';
+                                displayText = ` ${body.error}`;
+                                linkHref = body.job_url;
+                                linkText = clickType === 'hotfix_cleanup' ? '[hotfix:cleanup]' : '[hotfix:create]';
+                            } else {
+                                btnClass    = 'success';
+                                clickableBtn.textContent = '✅ Success';
+                                displayText = ` ${body.status}`;
+                                linkHref = body.job_url;
+                                linkText = clickType === 'hotfix_cleanup' ? '[hotfix:cleanup]' : `[${body.hotfix_branch}]`;
+                            }
+                        } catch (err) {
+                            console.error(err);
+                            btnClass    = 'warning';
+                            clickableBtn.textContent = '⚠️ Error';
+                            displayText = err.message;
+                        }
+
+                        clickableBtn.className             = `btn-pill ${btnClass}`;
+                        clickableBtnTextSpan.textContent   = displayText;
+                        clickableBtnLink.href              = linkHref;
+                        clickableBtnLink.textContent       = linkText;
+                        clickableBtnLink.style.color       = linkColor;
+
+                        buttonCell.append(clickableBtnTextSpan, clickableBtnLink);
+                    });
+                };
+
+                buttonCell.append(clickableBtn, clickableBtnTextSpan, clickableBtnLink);
+                return buttonCell;
+            }
+
+            let latest_release_branch_major, latest_release_branch_minor, latest_release_branch_patch;
+            let latest_release_pipeline_major, latest_release_pipeline_minor, latest_release_pipeline_patch;
+            let latest_hotfix_branch_major, latest_hotfix_branch_minor, latest_hotfix_branch_patch;
+            let latest_hotfix_pipeline_major, latest_hotfix_pipeline_minor, latest_hotfix_pipeline_patch;
+            let latest_prod_deployment_major, latest_prod_deployment_minor, latest_prod_deployment_patch;
+
+            function buildOpenReleaseCell(project) {
+                const openReleaseCell = document.createElement('td');
+                openReleaseCell.classList.add('fixed-cell');
+
+                let displayText = '';
+                let tooltipText = '';
+                let linkText = '';
+                let linkHref = '#';
+                let linkColor = 'orange';
+
+                // A branch with/without a pipeline can exist, but not the vice-versa in usual cases
+                // When both the latest release branch, and it's pipeline are available
+                if (project.latest_release_branch_version === project.latest_release_pipeline_version) {
+                    if (project.latest_release_branch_version != null) {
+                        if (project.latest_release_branch_version === project.latest_release_branch_tag_version) {
+                            displayText = '-';
+                            // ToDo: Add option to start a release when none available
+                        } else {
+                            displayText = `${project.latest_release_branch_version}`;
+                            linkText = project.latest_release_pipeline_status === "manual" ? "[Pipeline: success]" : `[Pipeline: ${project.latest_release_pipeline_status}]`;
+                            linkColor = project.latest_release_pipeline_status === "success" || project.latest_release_pipeline_status === "manual" ? "green" : project.latest_release_pipeline_status === "failed" ? "red": "gray";
+                            linkHref = project.latest_release_pipeline_url;
+                        }
+                    }
+                    // When no previous releases are available, maybe a fresh repo without any releases yet
+                    else {
+                        displayText = '-';
+                    }
+                }
+                // When the available latest release branch and the available latest release pipeline are different
+                else {
+                    if (project.latest_release_branch_version === project.latest_release_branch_tag_version) {
+                        tooltipText = `Looks like latest available release branch [${project.latest_release_branch_version}] was already released, but its pipeline is not available. Latest release branch pipeline currently available is for ${project.latest_release_pipeline_version}`;
+                        displayText = `Released branch without a pipeline`;
+                        linkText = `[release-${project.latest_release_branch_version}]`;
+                        linkHref = `${project.project_url}/-/tree/release-${project.latest_release_branch_version}`;
+                    } else {
+                        if (latest_release_branch_major === latest_release_pipeline_major) {
+                            if (latest_release_branch_minor > latest_release_pipeline_minor) {
+                                tooltipText = `An open release branch exists without a pipeline.`;
+                                displayText = `release-${project.latest_release_branch_version}`;
+                                linkText = `[release-${project.latest_release_branch_version}]`;
+                                linkHref = `${project.project_url}/-/tree/release-${project.latest_release_branch_version}`;
+                            } else {
+                                tooltipText = `Issue getting open release branch status, review manually. Latest unreleased release branch version - ${project.latest_release_branch_version}, Latest unreleased release pipeline version - ${project.latest_release_pipeline_version}`;
+                                displayText = `Inconsistent release`;
+                                linkText = `[${project.latest_release_pipeline_version}]`;
+                                linkHref = project.latest_release_pipeline_url;
+                            }
+                        } else {
+                            if (latest_release_branch_major > latest_release_pipeline_major) {
+                                tooltipText = `An open release branch exists without a pipeline.`;
+                                displayText = `release-${project.latest_release_branch_version}`;
+                                linkText = `[release-${project.latest_release_branch_version}]`;
+                                linkHref = `${project.project_url}/-/tree/release-${project.latest_release_branch_version}`;
+                            } else {
+                                tooltipText = `An outdated release branch exists: release-${project.latest_release_branch_version}`;
+                                displayText = `Outdated release branch`;
+                                linkText = `[release-${project.latest_release_branch_version}]`;
+                                linkHref = `${project.project_url}/-/tree/release-${project.latest_release_branch_version}`;
+                            }
+                        }
+                    }
+                }
+
+                // Create inner container for cell content
+                const container = document.createElement('div');
+                container.classList.add('cell-content');
+
+                // Create span for truncated text
+                const textSpan = document.createElement('span');
+                textSpan.classList.add('truncated-text');
+                textSpan.textContent = displayText;
+
+                // Create link element that remains fully visible
+                const link = document.createElement('a');
+                link.classList.add('link-section');
+                link.href = linkHref;
+                link.textContent = linkText;
+                link.target = '_blank';
+                link.style.color = linkColor;
+
+                // Append text and link into container
+                container.appendChild(textSpan);
+                container.appendChild(document.createTextNode(' '));
+                container.appendChild(link);
+
+                // Only set tooltip if tooltipText is non-empty (i.e. from the else branch)
+                if (tooltipText && tooltipText.trim() !== "") {
+                    container.setAttribute('data-tooltip', tooltipText);
+                } else {
+                    container.removeAttribute('data-tooltip');
+                }
+
+                // Append container into the cell and return
+                openReleaseCell.appendChild(container);
+
+                return openReleaseCell;
+            }
+
+            function buildOpenHotfixCell(project) {
+                const openHotfixCell = document.createElement('td');
+                openHotfixCell.classList.add('fixed-cell', 'hotfix-cell');
+
+                let displayText = '';
+                let tooltipText = '';
+                let linkText = '';
+                let linkHref = '#';
+                let linkColor = 'orange';
+
+                // When both the latest hotfix branch, and it's pipeline are available
+                if ( project.latest_hotfix_branch_version === project.latest_hotfix_pipeline_version ) {
+                    if ( project.latest_hotfix_branch_version != null ) {
+                        if (project.latest_hotfix_branch_version === project.latest_hotfix_branch_tag_version) {
+                            // Create new Hotfix if both latest available hotfix and release versions are already released
+                            if ((project.latest_hotfix_branch_version != null || project.latest_hotfix_pipeline_version != null) && project.latest_prod_deployment != null) {
+                                createClickableButtonCell(openHotfixCell, project, 'hotfix_create')
+                                return openHotfixCell;
+                            }
+                            // When no previous releases are available, maybe a fresh repo without any releases yet
+                            else {
+                                displayText = '-';
+                            }
+                        } else {
+                            displayText = `${project.latest_hotfix_pipeline_version}`;
+                            linkText = project.latest_hotfix_pipeline_status === "manual" ? "[Pipeline: success]" : `[Pipeline: ${project.latest_hotfix_pipeline_status}]`;
+                            linkColor = project.latest_hotfix_pipeline_status === "success" || project.latest_hotfix_pipeline_status === "manual" ? "green" : project.latest_hotfix_pipeline_status === "failed" ? "red": "gray";
+                            linkHref = project.latest_hotfix_pipeline_url;
+
+                            createClickableButtonCell(openHotfixCell, project, 'hotfix_cleanup');
+                        }
+                    } else{
+                        if ( project.workflow === 'gitflow' ) {
+                            createClickableButtonCell(openHotfixCell, project, 'hotfix_create')
+                            return openHotfixCell;
+                        } else {
+                            displayText = '-';
+                        }
+                    }
+                }
+                // When the available latest hotfix branch and the available hotfix release pipeline are different
+                else {
+                    let hotfixIssue = false
+
+                    if ( project.latest_hotfix_branch_version === project.latest_hotfix_branch_tag_version ) {  // Checks if latest hotfix branch version is already tagged
+                        tooltipText = `Looks like latest available hotfix branch [${project.latest_hotfix_branch_version}] was already released, but it's pipeline is not available. Latest hotfix branch pipeline currently available is for ${project.latest_hotfix_pipeline_version} `;
+                        displayText = `Released hotfix without a pipeline`;
+                        linkText = `[release-${project.latest_hotfix_branch_version}]`;
+                        linkHref = `${project.project_url}/-/tree/release-${project.latest_hotfix_branch_version}`;
+                    }
+                    else {
+                        if (project.latest_hotfix_pipeline_version != null) {
+                            if (project.latest_hotfix_pipeline_version === project.latest_hotfix_pipeline_tag_version) {    // Checks if latest hotfix pipeline version is already tagged
+                                if (latest_hotfix_branch_major === latest_hotfix_pipeline_major) {  // compares hotfix branch and pipeline majors
+                                    if (latest_release_pipeline_major === latest_hotfix_branch_major) {  // compares hotfix branch/pipeline major with release pipeline major
+                                        if (latest_hotfix_branch_minor >= latest_hotfix_pipeline_minor) {  // compares hotfix branch and pipeline minors
+                                            if (latest_release_pipeline_minor > latest_hotfix_branch_minor) {  // compares if tagged release pipeline minor is greater than hotfix branch minor since hotfix pipeline version was already tagged
+                                                if (project.latest_release_pipeline_version === project.latest_release_pipeline_tag_version) {  // if latest release pipeline was already released, and it's minor is greater than latest hotfix branch minor, hotfix is abandoned
+                                                    tooltipText = `An outdated hotfix branch exists: release-${project.latest_hotfix_branch_version}`;
+                                                    displayText = `Outdated hotfix branch`;
+                                                    linkText = `[release-${project.latest_hotfix_branch_version}]`;
+                                                    linkHref = `${project.project_url}/-/tree/release-${project.latest_hotfix_branch_version}`;
+
+                                                    createClickableButtonCell(openHotfixCell, project, 'hotfix_cleanup');
+                                                } else { // A new release and a previous version hotfix are available at the same time
+                                                    tooltipText = `An open hotfix branch is available, awaiting new code merges - release-${project.latest_hotfix_branch_version}`;
+                                                    displayText = `Open Hotfix awaiting changes`;
+                                                    linkText = `[release-${project.latest_hotfix_branch_version}]`;
+                                                    linkHref = `${project.project_url}/-/tree/release-${project.latest_hotfix_branch_version}`;
+
+                                                    createClickableButtonCell(openHotfixCell, project, 'hotfix_cleanup');
+                                                }
+                                            } else {
+                                                if (latest_release_pipeline_minor === latest_hotfix_branch_minor) { // A new hotfix branch for a previously released hotfix branch for the current release version
+                                                    tooltipText = `An open hotfix branch is available, awaiting new code merges - release-${project.latest_hotfix_branch_version}`;
+                                                    displayText = `Open Hotfix awaiting changes`;
+                                                    linkText = `[release-${project.latest_hotfix_branch_version}]`;
+                                                    linkHref = `${project.project_url}/-/tree/release-${project.latest_hotfix_branch_version}`;
+
+                                                    createClickableButtonCell(openHotfixCell, project, 'hotfix_cleanup');
+                                                } else {
+                                                    hotfixIssue = true
+                                                }
+                                            }
+                                        } else {
+                                            hotfixIssue = true
+                                        }
+                                    } else {
+                                        hotfixIssue = true
+                                    }
+                                } else {
+                                    if (latest_release_pipeline_major === latest_hotfix_branch_major) {  // compares hotfix branch/pipeline major with release branch major
+                                        if (latest_release_pipeline_minor > latest_hotfix_branch_minor) {  // compares if release branch minor is greater than hotfix branch minor since hotfix pipeline version was already tagged
+                                            tooltipText = `An outdated hotfix branch exists: release-${project.latest_hotfix_branch_version}`;
+                                            displayText = `Outdated hotfix branch`;
+                                            linkText = `[release-${project.latest_hotfix_branch_version}]`;
+                                            linkHref = `${project.project_url}/-/tree/release-${project.latest_hotfix_branch_version}`;
+
+                                            createClickableButtonCell(openHotfixCell, project, 'hotfix_cleanup');
+                                        } else {
+                                            tooltipText = `An open hotfix branch is available, awaiting new code merges - release-${project.latest_hotfix_branch_version}`;
+                                            displayText = `Open Hotfix awaiting changes`;
+                                            linkText = `[release-${project.latest_hotfix_branch_version}]`;
+                                            linkHref = `${project.project_url}/-/tree/release-${project.latest_hotfix_branch_version}`;
+
+                                            createClickableButtonCell(openHotfixCell, project, 'hotfix_cleanup');
+                                        }
+                                    } else {
+                                        hotfixIssue = true
+                                    }
+                                }
+                            } else {
+                                hotfixIssue = true
+                            }
+                        } else {
+                            if (project.latest_hotfix_branch_version != null) {
+                                if ((latest_prod_deployment_major > latest_hotfix_branch_major) || (latest_prod_deployment_major === latest_hotfix_branch_major && latest_prod_deployment_minor > latest_hotfix_branch_minor) || (latest_prod_deployment_major === latest_hotfix_branch_major && latest_prod_deployment_minor === latest_hotfix_branch_minor && latest_prod_deployment_patch > latest_hotfix_branch_patch)) {
+                                    tooltipText = `An outdated hotfix branch exists: release-${project.latest_hotfix_branch_version}`;
+                                    displayText = `Outdated hotfix branch`;
+                                    linkText = `[release-${project.latest_hotfix_branch_version}]`;
+                                    linkHref = `${project.project_url}/-/tree/release-${project.latest_hotfix_branch_version}`;
+
+                                    createClickableButtonCell(openHotfixCell, project, 'hotfix_cleanup');
+                                } else {
+                                    tooltipText = `An open hotfix branch is available, awaiting new code merges - release-${project.latest_hotfix_branch_version}`;
+                                    displayText = `Open Hotfix awaiting changes`;
+                                    linkText = `[release-${project.latest_hotfix_branch_version}]`;
+                                    linkHref = `${project.project_url}/-/tree/release-${project.latest_hotfix_branch_version}`;
+
+                                    createClickableButtonCell(openHotfixCell, project, 'hotfix_cleanup');
+                                }
+                            } else {
+                                hotfixIssue = true
+                            }
+                        }
+                    }
+
+                    if ( hotfixIssue ) {
+                        tooltipText = `Issue getting open hotfix branch status, review manually. Latest unreleased hotfix branch version - ${project.latest_hotfix_branch_version}, Latest unreleased hotfix pipeline version - ${project.latest_hotfix_pipeline_version}`;
+                        displayText = `Inconsistent Hotfix`;
+                        linkText = `[${project.latest_hotfix_pipeline_version}]`;
+                        linkHref = project.latest_hotfix_pipeline_url;
+                    }
+                }
+
+                // Create inner container for cell content
+                const container = document.createElement('div');
+                container.classList.add('cell-content');
+
+                // Create span for truncated text
+                const textSpan = document.createElement('span');
+                textSpan.classList.add('truncated-text');
+                textSpan.textContent = displayText;
+
+                // Create link element that remains fully visible
+                const link = document.createElement('a');
+                link.classList.add('link-section');
+                link.href = linkHref;
+                link.textContent = linkText;
+                link.target = '_blank';
+                link.style.color = linkColor;
+
+                // Append text and link into container
+                container.appendChild(textSpan);
+                container.appendChild(document.createTextNode(' '));
+                container.appendChild(link);
+
+                // Only set tooltip if tooltipText is non-empty (i.e. from the else branch)
+                if (tooltipText && tooltipText.trim() !== "") {
+                    container.setAttribute('data-tooltip', tooltipText);
+                } else {
+                    container.removeAttribute('data-tooltip');
+                }
+
+                // Append container into the cell and return
+                openHotfixCell.appendChild(container);
+
+                return openHotfixCell;
+            }
+
+            function buildMetricsHtml(project) {
+                const fmt = s => s == null ? '-' : `${Math.round(s/60)}m`;
+                return `
+                    <div><strong>Last Activity at:</strong> ${convertDateToLocalTime(project.last_activity_at)}</div>
+                    <div>&nbsp;</div>
+                    <div><strong>Deployment Timeframe:</strong></div>
+                    <div>&nbsp;&nbsp;&nbsp;&nbsp;<strong><em>Commit→Dev</em></strong> (${project.metrics.latest_dev_ref}):</div>
+                    <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Latest merge (${project.metrics.latest_dev_commit_sha}): ${fmt(project.metrics.latest_dev_lead_secs)}</div>
+                    <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Last 2 weeks average: ${fmt(project.metrics.commit_to_dev_median_secs)}</div>
+                    <div>&nbsp;&nbsp;&nbsp;&nbsp;<strong><em>Release→Stage</em></strong>:</div>
+                    <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Latest release (${project.metrics.latest_stage_version}): ${fmt(project.metrics.latest_release_to_stage_secs)}</div>
+                    <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Last 10 releases average: ${fmt(project.metrics.release_to_stage_median_secs)}</div>
+                    <div>&nbsp;&nbsp;&nbsp;&nbsp;<strong><em>Approval→Prod</em></strong>:</div>
+                    <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Latest release (${project.metrics.latest_prod_version}): ${fmt(project.metrics.latest_approval_to_prod_secs)}</div>
+                    <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Last 10 releases average: ${fmt(project.metrics.approval_to_prod_median_secs)}</div>
+                    <div>&nbsp;</div>
+                    <div><strong>Pipeline Runtime Average:</strong></div>
+                    <div>&nbsp;&nbsp;&nbsp;&nbsp;default branch: ${fmt(project.metrics.pipeline_duration_median_secs)}</div>
+                    <div>&nbsp;</div>
+                    <div><strong>Pipeline Success Rate:</strong></div>
+                    <div>&nbsp;&nbsp;&nbsp;&nbsp;default branch: ${Math.round((project.metrics.pipeline_success_rate||0)*100)}%</div>
+                `;
+            }
+
+            function buildProjectNameCell(project, workflow) {
+                const projectCell = document.createElement('td');
+                projectCell.style.position = 'relative';                // Popover will position to this
+
+                // Project name hyperlink
+                const projectHyperlink = document.createElement('a');
+                projectHyperlink.href = project.project_url;
+                projectHyperlink.target = '_blank';
+                projectHyperlink.textContent = workflow === 'gitflow'
+                    ? `${project.project_name} [G]`
+                    : `${project.project_name} [T]`;
+                projectCell.appendChild(projectHyperlink);
+
+                // Info "i" button
+                const infoBtn = document.createElement('button');
+                infoBtn.innerHTML = '<i class="fa fa-info-circle"></i>';
+                infoBtn.style.border = 'none';
+                infoBtn.style.background = 'none';
+                infoBtn.style.marginLeft = '6px';
+                infoBtn.style.cursor = 'pointer';
+                infoBtn.style.color = '#0277bd';
+                infoBtn.style.fontSize = '1em';
+                infoBtn.style.verticalAlign = 'middle';
+
+                projectCell.appendChild(infoBtn);
+
+                // Metrics popover
+                const popover = document.createElement('div');
+                popover.className = 'metrics-popover';
+
+                // Prepare the metrics HTML with pre-line for line breaks
+                popover.innerHTML = project.metrics ? buildMetricsHtml(project) : '<em>No metrics available</em>';
+                projectCell.appendChild(popover);
+
+                let hideTimer = null;
+                let isPopoverPending = false;
+
+                // Utility to compute and adjust popover position for visibility
+                function showPopover() {
+                    if (hideTimer) {
+                        clearTimeout(hideTimer);
+                        hideTimer = null;
+                    }
+
+                    isPopoverPending = true;
+                    popover.style.visibility = 'hidden';            // Render offscreen, invisible, for measurement
+                    popover.style.display = 'block';
+                    popover.style.opacity = '0';
+                    popover.style.top = infoBtn.offsetTop + 'px';   // popover appears with its top edge aligned with the button
+                    popover.style.left = infoBtn.offsetLeft + infoBtn.offsetWidth + 5 + 'px';
+                    popover.style.right = 'auto';
+                    popover.style.bottom = 'auto';
+
+                    // Wait for render, then adjust position if needed
+                    setTimeout(() => {
+                        const popoverRect = popover.getBoundingClientRect();
+                        const winHeight = window.innerHeight;
+                        const winWidth = window.innerWidth;
+
+                        // If overflow right, stick to the right edge of cell/table (or inward)
+                        if (popoverRect.right > winWidth - 8) {
+                            popover.style.left = 'auto';
+                            popover.style.right = '-8px';           // slight gap from right edge of cell
+                        }
+
+                        // If overflow bottom, align popover's bottom with button's bottom
+                        if (popoverRect.bottom > winHeight - 10) {
+                            // Calculate how much to move popover up so that its bottom aligns with button's bottom
+                            // Button's position relative to cell + height, minus popover height
+                            const btnBottom = infoBtn.offsetTop + infoBtn.offsetHeight;
+                            popover.style.top = (btnBottom - popover.offsetHeight) + 'px';
+                        }
+
+                        popover.style.visibility = 'visible';
+                        popover.style.opacity = '1';
+                        isPopoverPending = false;
+                    }, 10);
+                }
+
+                function delayedHidePopover() {
+                    // If already hiding, don't restart timer
+                    if (hideTimer) return;
+                    hideTimer = setTimeout(() => {
+                        popover.style.display = 'none';
+                        popover.style.opacity = '0';
+                        hideTimer = null;
+                    }, 50); // 0.05 seconds
+                }
+
+                function cancelHidePopover() {
+                    if (hideTimer) {
+                        clearTimeout(hideTimer);
+                        hideTimer = null;
+                    }
+                }
+
+                // Hover/click handlers
+                // Show on mouse over
+                infoBtn.onmouseenter = showPopover;
+                popover.onmouseenter = cancelHidePopover;
+                // Start hide timer on leave
+                infoBtn.onmouseleave = delayedHidePopover;
+                popover.onmouseleave = delayedHidePopover;
+
+                return projectCell;
+            }
+
+            function refreshRow(updatedData, row) {
+                // Define constants for the column indices
+                const COL_S_NO = 0;
+                const COL_PROJECT_NAME = 1;
+                const COL_STAGE_DEPLOYMENT = 2;
+                const COL_PROD_DEPLOYMENT = 3;
+                const COL_OPEN_RELEASE = 4;
+                const COL_OPEN_HOTFIX = 5;
+                const COL_REFRESH_BUTTON = 6;
+                const COL_REFRESHED_AT = 7;
+
+                // Update Stage Version and Deployment Time
+                stageDeploymentVersion = updatedData.latest_stage_deployment ? updatedData.latest_stage_deployment : '-';
+                stageDeploymentTime = updatedData.last_stage_deployment_at ? convertDateToLocalTime(updatedData.last_stage_deployment_at) : '-';
+                if (stageDeploymentVersion === '-' || stageDeploymentTime === '-') {
+                    row.cells[COL_STAGE_DEPLOYMENT].textContent = '-';
+                } else {
+                    row.cells[COL_STAGE_DEPLOYMENT].innerHTML = `<span class="refreshed-version-cell">${stageDeploymentVersion}</span>  (${stageDeploymentTime})`;
+                }
+
+                // Update Prod Version and Deployment Time
+                prodDeploymentVersion = updatedData.latest_prod_deployment ? updatedData.latest_prod_deployment : '-';
+                prodDeploymentTime = updatedData.last_prod_deployment_at ? convertDateToLocalTime(updatedData.last_prod_deployment_at) : '-';
+                if (prodDeploymentVersion === '-' || prodDeploymentTime === '-') {
+                    row.cells[COL_PROD_DEPLOYMENT].textContent = '-';
+                } else {
+                    row.cells[COL_PROD_DEPLOYMENT].innerHTML = `<span class="refreshed-version-cell">${prodDeploymentVersion}</span>  (${prodDeploymentTime})`;
+                }
+
+                [latest_release_branch_major, latest_release_branch_minor, latest_release_branch_patch] = updatedData.latest_release_branch_version?.split('.') ?? [];
+                [latest_release_pipeline_major, latest_release_pipeline_minor, latest_release_pipeline_patch] = updatedData.latest_release_pipeline_version?.split('.') ?? [];
+                [latest_hotfix_branch_major, latest_hotfix_branch_minor, latest_hotfix_branch_patch] = updatedData.latest_hotfix_branch_version?.split('.') ?? [];
+                [latest_hotfix_pipeline_major, latest_hotfix_pipeline_minor, latest_hotfix_pipeline_patch] = updatedData.latest_hotfix_pipeline_version?.split('.') ?? [];
+                [latest_prod_deployment_major, latest_prod_deployment_minor, latest_prod_deployment_patch] = updatedData.latest_prod_deployment?.split('.') ?? [];
+
+                // Update Open Release
+                row.replaceChild(buildOpenReleaseCell(updatedData), row.cells[COL_OPEN_RELEASE]);
+
+                // Update Open Hotfix
+                row.replaceChild(buildOpenHotfixCell(updatedData), row.cells[COL_OPEN_HOTFIX]);
+
+                // Update "Last Refreshed at"
+                row.cells[COL_REFRESHED_AT].textContent = convertDateToLocalTime(updatedData.last_refreshed_at);
+            }
+
+            // Function to display statuses on the webpage
+            async function displayStatuses() {
+                const tbody = document.querySelector('#statusTable tbody');
+                const loadingIndicator = document.getElementById('loading');
+                // const statusTable = document.getElementById('statusTable');
+
+                try {
+                    // Show loading indicator
+                    loadingIndicator.style.display = 'block';
+                    // Hide table while loading
+                    // statusTable.style.display = 'none';
+
+                    // Clear previous rows
+                    tbody.innerHTML = '';
+
+                    const sessionOk = await safeFetch('/session/check');
+                    if (!sessionOk || !sessionOk.logged_in) {
+                        window.location.href = '/login';
+                        return;
+                    }
+
+                    const gitflow = projectDict.gitflow;
+                    const trunk = projectDict.trunk;
+                    const { gitflow: pg, trunk: pt } = projectDict.priority;
+
+                    // Fetch project details for list of IDs
+                    const fetchDetails = (ids, wf, category) =>
+                        Promise.all(ids.map(id =>
+                            safeFetch(`/project_data/${wf}/${id}`)
+                                .then(data => ({
+                                    workflow:       wf,
+                                    projectId:      id,
+                                    projectData:    data,
+                                    category
+                                }))
+                        ));
+
+                    // Build priority arrays in category order
+                    let rows = [];
+
+                    for (const [cat, ids] of Object.entries(pg)) {
+                        if (cat === 'others') continue;
+                        rows.push({ isHeader: true, text: cat.toUpperCase() });
+                        rows.push(...await fetchDetails(ids, 'gitflow', cat));
+                    }
+
+                    for (const [cat, ids] of Object.entries(pt)) {
+                        if (cat === 'others') continue;
+                        rows.push({ isHeader: true, text: cat.toUpperCase() });
+                        rows.push(...await fetchDetails(ids, 'trunk', cat));
+                    }
+
+                    const gitflowOthers = pg.others || [];
+                    const trunkOthers   = pt.others || [];
+                    const allOthersIds  = [...gitflowOthers, ...trunkOthers];
+                    if (allOthersIds.length) {
+                        rows.push({ isHeader: true, text: 'Other Prioritized Projects' });
+                        const gitflowOtherRows = await fetchDetails(gitflowOthers, 'gitflow', 'others');
+                        const trunkOtherRows   = await fetchDetails(trunkOthers,   'trunk', 'others');
+                        rows.push(...gitflowOtherRows, ...trunkOtherRows);
+                    }
+
+                    const prioritizedGitflowIds = new Set(Object.values(pg).flat());
+                    const prioritizedTrunkIds = new Set(Object.values(pt).flat());
+
+                    const remainingGitflow = gitflow.filter(id => !prioritizedGitflowIds.has(id));
+                    const remainingTrunk   = trunk.filter(id => !prioritizedTrunkIds.has(id));
+
+                    const remainingGitflowDetails = await fetchDetails(remainingGitflow, 'gitflow');
+                    const remainingTrunkDetails   = await fetchDetails(remainingTrunk,   'trunk');
+
+                    // Combine remaining lists and sort them by last_release_deployment_at
+                    const restCombinedDetails = [...remainingGitflowDetails, ...remainingTrunkDetails].sort((a, b) => {
+                        const aTime = new Date(a.projectData.last_release_deployment_at);
+                        const bTime = new Date(b.projectData.last_release_deployment_at);
+                        return bTime - aTime;
+                    });
+                    rows.push({ isHeader: true, text: 'Rest of the Projects' });
+                    rows.push(...restCombinedDetails);
+
+
+                    // Update the Sl.No. header with the total number of projects
+                    const slNoHeader = document.querySelector('#slNoHeader');
+                    slNoHeader.textContent = `S.No. (${rows.filter(r=>!r.isHeader).length})`;
+
+                    let slNo = 0;
+                    rows.forEach(item => {
+                        if (item.isHeader) {
+                            const tr = document.createElement('tr');
+                            const td = document.createElement('td');
+                            td.colSpan = 8;  // adjust to your number of columns
+                            td.textContent = item.text;
+                            td.classList.add('center-align');
+                            td.style.fontWeight = 'bold';
+                            td.style.backgroundColor = '#ddd';
+                            tr.appendChild(td);
+                            tbody.appendChild(tr);
+                        } else {
+                            slNo++;
+
+                            const {workflow, projectId, projectData, category} = item;
+                            if (!projectData) return;   // skip failed requests
+                            const project = projectData;
+                            console.log("project:", project);
+
+                            // Display fetched statuses
+                            const row = document.createElement('tr');
+                            if (category) row.classList.add(`cat-${category}`);
+
+                            const slNoCell = document.createElement('td');
+                            slNoCell.textContent = slNo;
+                            slNoCell.classList.add('center-align');
+                            row.appendChild(slNoCell);
+
+                            row.appendChild(buildProjectNameCell(project, workflow));
+
+                            const stageVersionCell = document.createElement('td');
+                            stageDeploymentVersion = project.latest_stage_deployment ? project.latest_stage_deployment : '-';
+                            stageDeploymentTime = project.last_stage_deployment_at ? convertDateToLocalTime(project.last_stage_deployment_at) : '-';
+                            if (stageDeploymentVersion === '-' || stageDeploymentTime === '-') {
+                                stageVersionCell.textContent = '-';
+                            } else {
+                                stageVersionCell.innerHTML = `<span class="version-cell">${stageDeploymentVersion}</span>  (${stageDeploymentTime})`;
+                            }
+                            row.appendChild(stageVersionCell);
+
+                            const prodVersionCell = document.createElement('td');
+                            prodDeploymentVersion = project.latest_prod_deployment ? project.latest_prod_deployment : '-';
+                            prodDeploymentTime = project.last_prod_deployment_at ? convertDateToLocalTime(project.last_prod_deployment_at) : '-';
+                            if (prodDeploymentVersion === '-' || prodDeploymentTime === '-') {
+                                prodVersionCell.textContent = '-';
+                            } else {
+                                const spacer = '&nbsp;&nbsp;&nbsp;&nbsp;';
+                                prodVersionCell.innerHTML = `<span class="version-cell">${prodDeploymentVersion}</span>  (${prodDeploymentTime})`;
+                            }
+                            row.appendChild(prodVersionCell);
+
+                            [latest_release_branch_major, latest_release_branch_minor, latest_release_branch_patch] = project.latest_release_branch_version?.split('.') ?? [];
+                            [latest_release_pipeline_major, latest_release_pipeline_minor, latest_release_pipeline_patch] = project.latest_release_pipeline_version?.split('.') ?? [];
+                            [latest_hotfix_branch_major, latest_hotfix_branch_minor, latest_hotfix_branch_patch] = project.latest_hotfix_branch_version?.split('.') ?? [];
+                            [latest_hotfix_pipeline_major, latest_hotfix_pipeline_minor, latest_hotfix_pipeline_patch] = project.latest_hotfix_pipeline_version?.split('.') ?? [];
+                            [latest_prod_deployment_major, latest_prod_deployment_minor, latest_prod_deployment_patch] = project.latest_prod_deployment?.split('.') ?? [];
+                            row.appendChild(buildOpenReleaseCell(project));
+                            row.appendChild(buildOpenHotfixCell(project));
+
+                            const refreshButtonCell = document.createElement('td');
+                            const refreshButton = document.createElement('button');
+                            refreshButton.className = 'btn';
+
+                            const spinnerIcon = document.createElement('i');
+                            spinnerIcon.className = 'fa fa-refresh fa-spin hidden';
+                            spinnerIcon.style.marginRight = '5px'; // space between icon and text
+                            const buttonText = document.createTextNode('Refresh');
+                            refreshButton.appendChild(spinnerIcon);
+                            refreshButton.appendChild(buttonText);
+
+                            refreshButton.onclick = async () => {
+                                refreshButton.disabled = true;
+                                spinnerIcon.classList.remove('hidden');
+                                try {
+                                    // Apply new highlight
+                                    row.classList.add('highlight');
+                                    let lastHighlightedRow = row;
+
+                                    const latestData = await safeFetch(`/project_data/${workflow}/${project.project_id}?force_refresh=true`);
+                                    refreshRow(latestData, row);
+
+                                    // Remove previous highlight if it exists
+                                    if (lastHighlightedRow && lastHighlightedRow == row) {
+                                        lastHighlightedRow.classList.remove('highlight');
+                                    }
+                                } catch (err) {
+                                    console.error(`Refresh failed for project ${project.project_id}:`, err);
+                                    alert('Refresh failed. See console for details.');
+                                } finally {
+                                    spinnerIcon.classList.add('hidden');
+                                    refreshButton.disabled = false;
+                                }
+                            };
+
+                            refreshButtonCell.appendChild(refreshButton);
+                            row.appendChild(refreshButtonCell);
+
+                            const refreshedAtCell = document.createElement('td');
+                            refreshedAtCell.textContent = convertDateToLocalTime(project.last_refreshed_at);
+                            row.appendChild(refreshedAtCell);
+
+                            tbody.appendChild(row);
+                        }
+                    });
+
+                    // Hide loading indicator
+                    loadingIndicator.style.display = 'none';
+                    // Show table after loading
+                    // statusTable.style.display = 'table';
+                } catch (error) {
+                    console.error('Error displaying statuses:', error);
+                    loadingIndicator.textContent = 'Failed to load data. Please try again later...';
+                }
+            }
+
+            // GitLab Status Banner logic
+            async function updateGitlabStatusBanner() {
+                const banner = document.getElementById('gitlab-status-banner');
+                if (!banner) return;
+                const dot = document.getElementById('gitlab-status-dot');
+                const text = document.getElementById('gitlab-status-text');
+
+                // Default: loading
+                dot.style.background = "#aaa";
+                text.innerHTML = "Checking GitLab Status…";
+
+                try {
+                    // Use official GitLab status API if possible (https://status.gitlab.com/api/v2/status.json)
+                    const resp = await fetch('http://hostedstatus.com/1.0/status/5b36dc6502d06804c08349f7', {cache:'no-store'});
+                    if (!resp.ok) throw new Error('Status fetch failed');
+
+                    const resp_json = await resp.json();
+                    const data = resp_json.result;
+                    const status = data.status_overall || {};
+                    const status_code = status.status_code || '';
+                    const description = status.status || 'Unknown';
+                    const incidents = status.incidents || [];
+
+                    if (status_code === 100) {
+                        text.innerHTML = 'GitLab status: <strong>' + description + '</strong>';
+                    } else {
+                        if (incidents.length > 0) {
+                            text.innerHTML =
+                                'GitLab status: <strong>' + description + '</strong> (Active Incidents: ' + incidents.length + ')';
+                        } else {
+                            text.innerHTML = 'GitLab status: <strong>' + description + '</strong>';
+                        }
+                    }
+
+                    // Map GitLab status_code to a color class
+                    const colourMap = {
+                        100:       'green'
+                    };
+                    const colour = colourMap[status_code] || 'gray';
+
+                    dot.style.background = colour;
+                    banner.title = description;
+                } catch (err) {
+                    text.innerHTML = "Status: <strong>Error</strong>";
+                    dot.style.background = "#aaa";
+                    banner.title = "Could not fetch GitLab status";
+                }
+            }
+
+            // Initial call to display statuses
+            displayStatuses();
+            updateGitlabStatusBanner();
+
+            // Update statuses every 5 min [300 seconds (300000 milliseconds)]
+            setInterval(displayStatuses, 300000);
+            setInterval(updateGitlabStatusBanner, 5*60*1000);
+        </script>
+    </body>
+</html>

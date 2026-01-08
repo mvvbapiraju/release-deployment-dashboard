@@ -1,0 +1,115 @@
+stages:
+  - validate
+  - build
+  - deploy
+
+default:
+  interruptible: true
+
+variables:
+  AWS_REGION: "us-east-1"
+  # ECR_REPO must match task definition "image" prefix (<aws-account-id>.dkr.ecr.us-east-1.amazonaws.com/myorg/release-deployment-dashboard)
+  ECR_REPO: ""
+  ECS_CLUSTER: ""
+  ECS_SERVICE: ""
+  ECS_TASKDEF_TEMPLATE: "ecs/release-deployment-dashboard-dev.json"
+  DOCKER_TLS_CERTDIR: "/certs"
+  DOCKER_DRIVER: "overlay2"
+
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH
+    - if: $CI_COMMIT_TAG
+
+validate:
+  stage: validate
+  image: python:3.12-slim
+  script:
+    - python --version
+    - pip install -r requirements.txt
+    - python -m compileall -q .
+  rules:
+    - when: always
+
+build_and_push_ecr:
+  stage: build
+  image: docker:25
+  services:
+    - name: docker:25-dind
+      command: ["--mtu=1460"]
+  before_script:
+    - apk add --no-cache python3 py3-pip jq
+    - pip3 install --no-cache-dir awscli
+    - aws --version
+    - |
+      if [ -z "$ECR_REPO" ]; then
+        echo "ERROR: ECR_REPO is empty. Set it in CI/CD variables."
+        exit 1
+      fi
+    - aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$(echo "$ECR_REPO" | cut -d/ -f1)"
+  script:
+    # For Git tag pipeline, use the tag (ex: v1.2.3), else use short SHA
+    - |
+      if [ -n "$CI_COMMIT_TAG" ]; then
+        VERSION="$CI_COMMIT_TAG"
+      else
+        VERSION="$CI_COMMIT_SHORT_SHA"
+      fi
+      echo "VERSION=$VERSION" | tee build.env
+    - docker build --pull -t "$ECR_REPO:$VERSION" .
+    - docker push "$ECR_REPO:$VERSION"
+  artifacts:
+    reports:
+      dotenv: build.env
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH == "main"
+
+deploy_dev:
+  stage: deploy
+  image: public.ecr.aws/aws-cli/aws-cli:2
+  needs: ["build_and_push_ecr"]
+  script:
+    - |
+      if [ -z "$ECS_CLUSTER" ] || [ -z "$ECS_SERVICE" ]; then
+        echo "ERROR: ECS_CLUSTER/ECS_SERVICE must be set in CI/CD variables."
+        exit 1
+      fi
+    # Render task definition from template by replacing ${version}
+    - |
+      echo "Deploying VERSION=$VERSION to ECS service $ECS_SERVICE in cluster $ECS_CLUSTER"
+      sed "s/\${version}/$VERSION/g" "$ECS_TASKDEF_TEMPLATE" > taskdef.rendered.json
+    # Register task definition and capture new revision
+    - |
+      TASKDEF_ARN="$(aws ecs register-task-definition \
+        --cli-input-json file://taskdef.rendered.json \
+        --region "$AWS_REGION" \
+        --query 'taskDefinition.taskDefinitionArn' \
+        --output text)"
+      echo "Registered task definition: $TASKDEF_ARN"
+    # Update service to new task definition
+    - |
+      aws ecs update-service \
+        --cluster "$ECS_CLUSTER" \
+        --service "$ECS_SERVICE" \
+        --task-definition "$TASKDEF_ARN" \
+        --force-new-deployment \
+        --region "$AWS_REGION"
+  environment:
+    name: dev
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+deploy_prod:
+  stage: deploy
+  image: public.ecr.aws/aws-cli/aws-cli:2
+  needs: ["build_and_push_ecr"]
+  script:
+    - echo "Prod deploy placeholder."
+    - echo "Create a prod taskdef template (ex: releases-deployment-dashboard-prod.json) and set ECS_CLUSTER/ECS_SERVICE accordingly."
+  environment:
+    name: prod
+  when: manual
+  allow_failure: false
+  rules:
+    - if: $CI_COMMIT_TAG
